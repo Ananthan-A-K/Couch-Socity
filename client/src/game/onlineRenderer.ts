@@ -1,4 +1,4 @@
-import type { AuthoritativeGameState, PlayerRole } from '../types';
+import type { AuthoritativeGameState, PlayerRole, InputDirection } from '../types';
 
 export const ONLINE_GAME_CONFIG = {
   canvasWidth: 800,
@@ -8,6 +8,7 @@ export const ONLINE_GAME_CONFIG = {
   paddleMargin: 28,
   paddleRadius: 4,
   ballSize: 12,
+  paddleSpeed: 440, // px per second matching server authoritative physics
 };
 
 interface Particle {
@@ -47,6 +48,8 @@ export class OnlinePongRenderer {
   // Particles
   private particles: Particle[] = [];
   private victoryParticles: Particle[] = [];
+
+  private lastRenderTime: number = 0;
 
   constructor(ctx: CanvasRenderingContext2D) {
     this.ctx = ctx;
@@ -102,6 +105,7 @@ export class OnlinePongRenderer {
     state: AuthoritativeGameState,
     localRole: PlayerRole | null,
     hasOpponent: boolean,
+    localDirection: InputDirection = 0,
     interpolate: boolean = true
   ): void {
     const { ctx } = this;
@@ -113,7 +117,12 @@ export class OnlinePongRenderer {
       paddleMargin,
       paddleRadius,
       ballSize,
+      paddleSpeed,
     } = ONLINE_GAME_CONFIG;
+
+    const now = performance.now();
+    const dt = this.lastRenderTime > 0 ? Math.min(0.05, (now - this.lastRenderTime) / 1000) : 0.016;
+    this.lastRenderTime = now;
 
     const p1Y = state.player1?.y ?? (h - paddleHeight) / 2;
     const p2Y = state.player2?.y ?? (h - paddleHeight) / 2;
@@ -179,16 +188,82 @@ export class OnlinePongRenderer {
     this.p2HitEffect = Math.max(0, this.p2HitEffect - 0.08);
 
     if (interpolate) {
-      // Smooth paddle movement
-      const p1Dist = Math.abs(p1Y - this.visualP1Y);
-      if (p1Dist > 70) this.visualP1Y = p1Y;
-      else this.visualP1Y += (p1Y - this.visualP1Y) * 0.55;
+      const maxPaddleY = h - paddleHeight;
 
-      const p2Dist = Math.abs(p2Y - this.visualP2Y);
-      if (p2Dist > 70) this.visualP2Y = p2Y;
-      else this.visualP2Y += (p2Y - this.visualP2Y) * 0.55;
+      if (state.status === 'playing') {
+        // --- PLAYER 1 PADDLE HANDLING ---
+        if (localRole === 'player1') {
+          // 1. Immediate client-side prediction for Local Player 1
+          if (localDirection !== 0) {
+            this.visualP1Y += localDirection * paddleSpeed * dt;
+            this.visualP1Y = Math.max(0, Math.min(maxPaddleY, this.visualP1Y));
+          }
 
-      // Smooth ball movement
+          // 2. Smooth reconciliation with authoritative server position
+          const p1Diff = p1Y - this.visualP1Y;
+          if (localDirection === 0) {
+            // Stationary: quickly snap/converge to exact server position
+            if (Math.abs(p1Diff) < 0.5) {
+              this.visualP1Y = p1Y;
+            } else {
+              this.visualP1Y += p1Diff * 0.35;
+            }
+          } else {
+            // Moving: gently pull if diverged, hard snap only on extreme desync
+            if (Math.abs(p1Diff) > 85) {
+              this.visualP1Y = p1Y;
+            } else if (Math.abs(p1Diff) > 35) {
+              this.visualP1Y += p1Diff * 0.15;
+            }
+          }
+        } else {
+          // Opponent (or Spectator) Player 1: smooth interpolation from server updates
+          const p1Dist = Math.abs(p1Y - this.visualP1Y);
+          if (p1Dist > 70) this.visualP1Y = p1Y;
+          else this.visualP1Y += (p1Y - this.visualP1Y) * 0.55;
+        }
+
+        // --- PLAYER 2 PADDLE HANDLING ---
+        if (localRole === 'player2') {
+          // 1. Immediate client-side prediction for Local Player 2
+          if (localDirection !== 0) {
+            this.visualP2Y += localDirection * paddleSpeed * dt;
+            this.visualP2Y = Math.max(0, Math.min(maxPaddleY, this.visualP2Y));
+          }
+
+          // 2. Smooth reconciliation with authoritative server position
+          const p2Diff = p2Y - this.visualP2Y;
+          if (localDirection === 0) {
+            if (Math.abs(p2Diff) < 0.5) {
+              this.visualP2Y = p2Y;
+            } else {
+              this.visualP2Y += p2Diff * 0.35;
+            }
+          } else {
+            if (Math.abs(p2Diff) > 85) {
+              this.visualP2Y = p2Y;
+            } else if (Math.abs(p2Diff) > 35) {
+              this.visualP2Y += p2Diff * 0.15;
+            }
+          }
+        } else {
+          // Opponent (or Spectator) Player 2: smooth interpolation from server updates
+          const p2Dist = Math.abs(p2Y - this.visualP2Y);
+          if (p2Dist > 70) this.visualP2Y = p2Y;
+          else this.visualP2Y += (p2Y - this.visualP2Y) * 0.55;
+        }
+      } else {
+        // Non-playing state (waiting, countdown, game-over): smoothly align to server
+        const p1Dist = Math.abs(p1Y - this.visualP1Y);
+        if (p1Dist > 70) this.visualP1Y = p1Y;
+        else this.visualP1Y += (p1Y - this.visualP1Y) * 0.55;
+
+        const p2Dist = Math.abs(p2Y - this.visualP2Y);
+        if (p2Dist > 70) this.visualP2Y = p2Y;
+        else this.visualP2Y += (p2Y - this.visualP2Y) * 0.55;
+      }
+
+      // Smooth ball movement (100% Server Authoritative)
       const ballDist = Math.hypot(ballX - this.visualBallX, ballY - this.visualBallY);
       if (ballDist > 90) {
         this.visualBallX = ballX;

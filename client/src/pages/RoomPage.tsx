@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { AmbientPongCanvas } from '../components/landing/AmbientPongCanvas';
 import { isValidRoomCode } from '../utils/roomCode';
-import { socket } from '../services/socket';
+import { socket, subscribeDiagnostics, type DiagnosticInfo } from '../services/socket';
 import { sounds } from '../services/sound';
 import { OnlinePongRenderer, ONLINE_GAME_CONFIG } from '../game/onlineRenderer';
 import type {
@@ -91,6 +91,14 @@ export const RoomPage: React.FC = () => {
 
   const hasOpponent = Boolean(roomState?.player1 && roomState?.player2);
 
+  // [TEMPORARY DIAGNOSTICS - LATENCY TELEMETRY]
+  const [diag, setDiag] = useState<DiagnosticInfo | null>(null);
+  const [showDiagLogs, setShowDiagLogs] = useState(false);
+
+  useEffect(() => {
+    return subscribeDiagnostics(setDiag);
+  }, []);
+
   const handleToggleSound = () => {
     sounds.unlock();
     const muted = sounds.toggleMute();
@@ -165,13 +173,25 @@ export const RoomPage: React.FC = () => {
       if (ctx) {
         rendererRef.current = new OnlinePongRenderer(ctx);
         if (gameStateRef.current) {
-          rendererRef.current.render(gameStateRef.current, localRole, hasOpponent, false);
+          rendererRef.current.render(gameStateRef.current, localRole, hasOpponent, 0, false);
         }
       }
     }
   }, [localRole, hasOpponent]);
 
-  // 2. Smooth Animation Frame Loop for 60-144fps rendering
+  // 2. Directional Intent Input System (Keyboard + Mobile Touch Integration)
+  const currentDirectionRef = useRef<InputDirection>(0);
+  const lastSentDirectionRef = useRef<InputDirection>(0);
+
+  const emitDirection = useCallback((nextDirection: InputDirection) => {
+    currentDirectionRef.current = nextDirection;
+    if (nextDirection !== lastSentDirectionRef.current) {
+      lastSentDirectionRef.current = nextDirection;
+      socket.emit('player-input', { direction: nextDirection });
+    }
+  }, []);
+
+  // 3. Smooth Animation Frame Loop for 60-144fps rendering with local paddle prediction
   useEffect(() => {
     let animId: number;
 
@@ -181,6 +201,7 @@ export const RoomPage: React.FC = () => {
           gameStateRef.current,
           localRole,
           hasOpponent,
+          currentDirectionRef.current,
           true
         );
       }
@@ -190,16 +211,6 @@ export const RoomPage: React.FC = () => {
     animId = requestAnimationFrame(renderLoop);
     return () => cancelAnimationFrame(animId);
   }, [localRole, hasOpponent]);
-
-  // 3. Directional Intent Input System (Keyboard + Mobile Touch Integration)
-  const lastSentDirectionRef = useRef<InputDirection>(0);
-
-  const emitDirection = useCallback((nextDirection: InputDirection) => {
-    if (nextDirection !== lastSentDirectionRef.current) {
-      lastSentDirectionRef.current = nextDirection;
-      socket.emit('player-input', { direction: nextDirection });
-    }
-  }, []);
 
   // Keyboard listener
   useEffect(() => {
@@ -889,6 +900,53 @@ export const RoomPage: React.FC = () => {
             ) : null}
           </div>
         </div>
+
+        {/* ========================================================================= */}
+        {/* [TEMPORARY DIAGNOSTICS - LATENCY & TRANSPORT TELEMETRY]                    */}
+        {/* ========================================================================= */}
+        {diag && (
+          <div className="w-full mt-4 p-3 bg-stone-900/60 border border-stone-800/80 rounded-xl font-mono text-[11px] text-stone-400">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-3">
+                <span className="flex items-center gap-1.5">
+                  <span className={`w-2 h-2 rounded-full ${diag.connected ? 'bg-emerald-400' : 'bg-rose-400'}`} />
+                  <span className="text-stone-300 font-bold">
+                    {diag.connected ? 'CONNECTED' : 'DISCONNECTED'}
+                  </span>
+                </span>
+                <span>
+                  Transport: <span className="text-amber-400 font-bold uppercase">{diag.transportName}</span>
+                </span>
+                <span>
+                  RTT Latency:{' '}
+                  <span className="text-cyan-400 font-bold">
+                    {diag.rttLatencyMs !== null ? `${diag.rttLatencyMs}ms` : 'Measuring...'}
+                  </span>
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-stone-500 text-[10px] truncate max-w-[200px] sm:max-w-none">
+                  Target: {diag.backendUrl}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowDiagLogs(!showDiagLogs)}
+                  className="text-[10px] text-stone-500 hover:text-stone-300 underline cursor-pointer"
+                >
+                  {showDiagLogs ? 'Hide Logs' : 'Show Logs'}
+                </button>
+              </div>
+            </div>
+            {showDiagLogs && (
+              <div className="mt-2.5 pt-2 border-t border-stone-800/80 text-[10px] space-y-1 text-stone-500">
+                {diag.history.map((log, i) => (
+                  <div key={i}>{log}</div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        {/* ========================================================================= */}
       </div>
     </div>
   );
