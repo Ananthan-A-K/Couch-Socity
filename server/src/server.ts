@@ -211,6 +211,13 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Accurate client-server RTT measurement for diagnostics
+  socket.on('ping-rtt', (timestamp, callback) => {
+    if (typeof callback === 'function') {
+      callback(timestamp);
+    }
+  });
+
   // 5. REMATCH
   socket.on('rematch', () => {
     try {

@@ -191,86 +191,97 @@ export class OnlinePongRenderer {
       const maxPaddleY = h - paddleHeight;
 
       if (state.status === 'playing') {
-        // --- PLAYER 1 PADDLE HANDLING ---
+        // --- PLAYER 1 PADDLE ---
         if (localRole === 'player1') {
-          // 1. Immediate client-side prediction for Local Player 1
+          // 1. Local Player 1: Immediate Client-Side Prediction (Sole Writer)
           if (localDirection !== 0) {
             this.visualP1Y += localDirection * paddleSpeed * dt;
             this.visualP1Y = Math.max(0, Math.min(maxPaddleY, this.visualP1Y));
-          }
 
-          // 2. Smooth reconciliation with authoritative server position
-          const p1Diff = p1Y - this.visualP1Y;
-          if (localDirection === 0) {
-            // Stationary: quickly snap/converge to exact server position
-            if (Math.abs(p1Diff) < 0.5) {
+            // Reconciliation during active movement (only adjust on genuine desync, never fight normal network lag)
+            const diff = p1Y - this.visualP1Y;
+            const absDiff = Math.abs(diff);
+            if (absDiff > 200) {
+              this.visualP1Y = p1Y; // Extreme desync / teleport fallback
+            } else if (absDiff > 60) {
+              this.visualP1Y += diff * 0.12; // Moderate correction
+            } else if (absDiff >= 20) {
+              this.visualP1Y += diff * 0.04; // Gentle nudge
+            }
+            // If diff < 20px: completely ignored during movement to prevent any stutter
+          } else {
+            // Stationary: smoothly settle to authoritative server position
+            const diff = p1Y - this.visualP1Y;
+            if (Math.abs(diff) < 0.5) {
               this.visualP1Y = p1Y;
             } else {
-              this.visualP1Y += p1Diff * 0.35;
-            }
-          } else {
-            // Moving: gently pull if diverged, hard snap only on extreme desync
-            if (Math.abs(p1Diff) > 85) {
-              this.visualP1Y = p1Y;
-            } else if (Math.abs(p1Diff) > 35) {
-              this.visualP1Y += p1Diff * 0.15;
+              this.visualP1Y += diff * 0.25;
             }
           }
         } else {
-          // Opponent (or Spectator) Player 1: smooth interpolation from server updates
-          const p1Dist = Math.abs(p1Y - this.visualP1Y);
-          if (p1Dist > 70) this.visualP1Y = p1Y;
-          else this.visualP1Y += (p1Y - this.visualP1Y) * 0.55;
+          // Opponent (or Spectator) Player 1: Single smooth LERP path (No snap threshold)
+          const diff = p1Y - this.visualP1Y;
+          if (Math.abs(diff) > 250) {
+            this.visualP1Y = p1Y; // Snap only on round reset
+          } else {
+            this.visualP1Y += diff * 0.45;
+          }
         }
 
-        // --- PLAYER 2 PADDLE HANDLING ---
+        // --- PLAYER 2 PADDLE ---
         if (localRole === 'player2') {
-          // 1. Immediate client-side prediction for Local Player 2
+          // 1. Local Player 2: Immediate Client-Side Prediction (Sole Writer)
           if (localDirection !== 0) {
             this.visualP2Y += localDirection * paddleSpeed * dt;
             this.visualP2Y = Math.max(0, Math.min(maxPaddleY, this.visualP2Y));
-          }
 
-          // 2. Smooth reconciliation with authoritative server position
-          const p2Diff = p2Y - this.visualP2Y;
-          if (localDirection === 0) {
-            if (Math.abs(p2Diff) < 0.5) {
+            // Reconciliation during active movement
+            const diff = p2Y - this.visualP2Y;
+            const absDiff = Math.abs(diff);
+            if (absDiff > 200) {
               this.visualP2Y = p2Y;
-            } else {
-              this.visualP2Y += p2Diff * 0.35;
+            } else if (absDiff > 60) {
+              this.visualP2Y += diff * 0.12;
+            } else if (absDiff >= 20) {
+              this.visualP2Y += diff * 0.04;
             }
           } else {
-            if (Math.abs(p2Diff) > 85) {
+            // Stationary: smoothly settle to authoritative server position
+            const diff = p2Y - this.visualP2Y;
+            if (Math.abs(diff) < 0.5) {
               this.visualP2Y = p2Y;
-            } else if (Math.abs(p2Diff) > 35) {
-              this.visualP2Y += p2Diff * 0.15;
+            } else {
+              this.visualP2Y += diff * 0.25;
             }
           }
         } else {
-          // Opponent (or Spectator) Player 2: smooth interpolation from server updates
-          const p2Dist = Math.abs(p2Y - this.visualP2Y);
-          if (p2Dist > 70) this.visualP2Y = p2Y;
-          else this.visualP2Y += (p2Y - this.visualP2Y) * 0.55;
+          // Opponent (or Spectator) Player 2: Single smooth LERP path (No snap threshold)
+          const diff = p2Y - this.visualP2Y;
+          if (Math.abs(diff) > 250) {
+            this.visualP2Y = p2Y;
+          } else {
+            this.visualP2Y += diff * 0.45;
+          }
         }
       } else {
         // Non-playing state (waiting, countdown, game-over): smoothly align to server
-        const p1Dist = Math.abs(p1Y - this.visualP1Y);
-        if (p1Dist > 70) this.visualP1Y = p1Y;
-        else this.visualP1Y += (p1Y - this.visualP1Y) * 0.55;
+        const p1Diff = p1Y - this.visualP1Y;
+        if (Math.abs(p1Diff) > 200) this.visualP1Y = p1Y;
+        else this.visualP1Y += p1Diff * 0.35;
 
-        const p2Dist = Math.abs(p2Y - this.visualP2Y);
-        if (p2Dist > 70) this.visualP2Y = p2Y;
-        else this.visualP2Y += (p2Y - this.visualP2Y) * 0.55;
+        const p2Diff = p2Y - this.visualP2Y;
+        if (Math.abs(p2Diff) > 200) this.visualP2Y = p2Y;
+        else this.visualP2Y += p2Diff * 0.35;
       }
 
       // Smooth ball movement (100% Server Authoritative)
       const ballDist = Math.hypot(ballX - this.visualBallX, ballY - this.visualBallY);
-      if (ballDist > 90) {
+      if (ballDist > 250) {
         this.visualBallX = ballX;
         this.visualBallY = ballY;
       } else {
-        this.visualBallX += (ballX - this.visualBallX) * 0.65;
-        this.visualBallY += (ballY - this.visualBallY) * 0.65;
+        this.visualBallX += (ballX - this.visualBallX) * 0.60;
+        this.visualBallY += (ballY - this.visualBallY) * 0.60;
       }
     } else {
       this.visualP1Y = p1Y;

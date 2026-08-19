@@ -79,4 +79,5 @@ export interface ClientToServerEvents {
   'player-input': (data: PlayerInputPayload) => void;
   'player-ready': (data?: { ready?: boolean }) => void;
   'rematch': () => void;
+  'ping-rtt': (timestamp: number, callback: (timestamp: number) => void) => void;
 }

@@ -70,21 +70,29 @@ socket.on('connect', () => {
       diagState.upgraded = true;
       logDiag(`Transport upgraded to: ${transport.name}`);
     });
-
-    let pingStartTime = 0;
-    engine.on('ping', () => {
-      pingStartTime = performance.now();
-    });
-
-    engine.on('pong', () => {
-      if (pingStartTime > 0) {
-        diagState.rttLatencyMs = Math.round(performance.now() - pingStartTime);
-        notifyDiagListeners();
-      }
-    });
   }
   notifyDiagListeners();
+
+  // Send initial real round-trip ping
+  const start = performance.now();
+  socket.emit('ping-rtt', start, () => {
+    diagState.rttLatencyMs = Math.max(1, Math.round(performance.now() - start));
+    notifyDiagListeners();
+  });
 });
+
+// Periodic real round-trip measurement every 2.5 seconds
+if (typeof window !== 'undefined') {
+  setInterval(() => {
+    if (socket.connected) {
+      const start = performance.now();
+      socket.emit('ping-rtt', start, () => {
+        diagState.rttLatencyMs = Math.max(1, Math.round(performance.now() - start));
+        notifyDiagListeners();
+      });
+    }
+  }, 2500);
+}
 
 socket.on('disconnect', (reason) => {
   diagState.connected = false;

@@ -8,7 +8,7 @@ import {
   ClientToServerEvents,
 } from './src/types';
 
-const PORT = 4003;
+const PORT = 4200 + Math.floor(Math.random() * 300);
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -73,10 +73,10 @@ async function runHostSwitchTest() {
   });
 
   await new Promise<void>((resolve) => {
-    server.listen(PORT, () => resolve());
+    server.listen(PORT, '127.0.0.1', () => resolve());
   });
 
-  const socketUrl = `http://localhost:${PORT}`;
+  const socketUrl = `http://127.0.0.1:${PORT}`;
 
   const c1 = ClientSocket(socketUrl, { reconnection: false });
   const c2 = ClientSocket(socketUrl, { reconnection: false });
