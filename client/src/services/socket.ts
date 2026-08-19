@@ -107,6 +107,10 @@ socket.on('connect_error', (error) => {
   notifyDiagListeners();
 });
 
+export function getMeasuredRttMs(): number {
+  return diagState.rttLatencyMs ?? 40;
+}
+
 export function subscribeDiagnostics(callback: (state: DiagnosticInfo) => void): () => void {
   callback({ ...diagState, history: [...diagState.history] });
   listeners.add(callback);
@@ -115,3 +119,4 @@ export function subscribeDiagnostics(callback: (state: DiagnosticInfo) => void):
   };
 }
 // ============================================================================
+

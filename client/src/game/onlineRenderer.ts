@@ -1,4 +1,5 @@
 import type { AuthoritativeGameState, PlayerRole, InputDirection } from '../types';
+import { getMeasuredRttMs } from '../services/socket';
 
 export const ONLINE_GAME_CONFIG = {
   canvasWidth: 800,
@@ -21,10 +22,12 @@ interface Particle {
   color: string;
 }
 
-export interface PendingInput {
-  seq: number;
-  direction: InputDirection;
-  dt: number;
+interface Snapshot {
+  timestamp: number;
+  p1Y: number;
+  p2Y: number;
+  p1Dir: number;
+  p2Dir: number;
 }
 
 export class OnlinePongRenderer {
@@ -35,12 +38,12 @@ export class OnlinePongRenderer {
   private visualBallY: number = ONLINE_GAME_CONFIG.canvasHeight / 2;
   private hasInitialized = false;
 
-  // Gabriel Gambetta Client-Side Prediction State
-  private pendingInputs: PendingInput[] = [];
-  private seqCounter: number = 0;
-  private visualLocalY: number = (ONLINE_GAME_CONFIG.canvasHeight - ONLINE_GAME_CONFIG.paddleHeight) / 2;
-  private lastAckSeq: number = 0;
-  private lastServerLocalY: number = (ONLINE_GAME_CONFIG.canvasHeight - ONLINE_GAME_CONFIG.paddleHeight) / 2;
+  // Single-Owner Local Prediction State
+  private predictedLocalY: number = (ONLINE_GAME_CONFIG.canvasHeight - ONLINE_GAME_CONFIG.paddleHeight) / 2;
+
+  // Remote Paddle Snapshot Interpolation Buffer
+  private snapshotBuffer: Snapshot[] = [];
+  private lastRecordedTimestamp: number = 0;
 
   // Visual Animation States
   private p1HitEffect: number = 0; // 0 to 1 decay
@@ -66,10 +69,6 @@ export class OnlinePongRenderer {
 
   constructor(ctx: CanvasRenderingContext2D) {
     this.ctx = ctx;
-  }
-
-  public getLatestSeq(): number {
-    return this.seqCounter;
   }
 
   public triggerPaddleHit(side: 'left' | 'right', y: number): void {
@@ -116,6 +115,50 @@ export class OnlinePongRenderer {
         });
       }
     }
+  }
+
+  /**
+   * Interpolates the remote paddle smoothly between authoritative server snapshots.
+   */
+  private getInterpolatedRemoteY(role: 'player1' | 'player2', fallbackY: number, now: number): number {
+    if (this.snapshotBuffer.length < 2) {
+      return fallbackY;
+    }
+
+    const INTERPOLATION_DELAY_MS = 60; // 60ms delay buffer for jitter-free interpolation
+    const latestTimestamp = this.snapshotBuffer[this.snapshotBuffer.length - 1]?.timestamp ?? now;
+    const renderTime = latestTimestamp - INTERPOLATION_DELAY_MS;
+
+    let s0: Snapshot | null = null;
+    let s1: Snapshot | null = null;
+
+    for (let i = this.snapshotBuffer.length - 1; i >= 0; i--) {
+      if (this.snapshotBuffer[i].timestamp <= renderTime) {
+        s0 = this.snapshotBuffer[i];
+        s1 = this.snapshotBuffer[i + 1] || null;
+        break;
+      }
+    }
+
+    const isP1 = role === 'player1';
+
+    if (s0 && s1 && s1.timestamp > s0.timestamp) {
+      const t = (renderTime - s0.timestamp) / (s1.timestamp - s0.timestamp);
+      const clampedT = Math.max(0, Math.min(1, t));
+      const y0 = isP1 ? s0.p1Y : s0.p2Y;
+      const y1 = isP1 ? s1.p1Y : s1.p2Y;
+      return y0 + (y1 - y0) * clampedT;
+    } else if (s0) {
+      // Short dead reckoning if buffer runs slightly dry
+      const y0 = isP1 ? s0.p1Y : s0.p2Y;
+      const dir = isP1 ? s0.p1Dir : s0.p2Dir;
+      const dtAhead = Math.max(0, Math.min(0.08, (renderTime - s0.timestamp) / 1000));
+      const deadReckonY = y0 + dir * ONLINE_GAME_CONFIG.paddleSpeed * dtAhead;
+      const maxPaddleY = ONLINE_GAME_CONFIG.canvasHeight - ONLINE_GAME_CONFIG.paddleHeight;
+      return Math.max(0, Math.min(maxPaddleY, deadReckonY));
+    }
+
+    return fallbackY;
   }
 
   public render(
@@ -180,10 +223,9 @@ export class OnlinePongRenderer {
     }
     this.countdownScale += (1 - this.countdownScale) * 0.14;
 
-    // Detect Ball Bounce / Direction changes for visual feedback
+    // Detect Ball Bounce / Direction changes for visual particle sparks
     if (this.lastBallVx !== 0 && ballVx !== 0) {
       if (Math.sign(ballVx) !== Math.sign(this.lastBallVx)) {
-        // Paddle bounce detected
         if (ballVx > 0) {
           this.triggerPaddleHit('left', ballY);
         } else {
@@ -193,7 +235,6 @@ export class OnlinePongRenderer {
     }
     if (this.lastBallVy !== 0 && ballVy !== 0) {
       if (Math.sign(ballVy) !== Math.sign(this.lastBallVy)) {
-        // Wall bounce detected
         this.triggerWallBounce(ballX, ballY);
       }
     }
@@ -207,84 +248,81 @@ export class OnlinePongRenderer {
     if (interpolate) {
       const maxPaddleY = h - paddleHeight;
 
+      // Update Snapshot Buffer for Remote Paddle
+      const serverTimestamp = state.timestamp || Date.now();
+      if (serverTimestamp !== this.lastRecordedTimestamp) {
+        this.lastRecordedTimestamp = serverTimestamp;
+        this.snapshotBuffer.push({
+          timestamp: serverTimestamp,
+          p1Y,
+          p2Y,
+          p1Dir: state.player1?.direction ?? 0,
+          p2Dir: state.player2?.direction ?? 0,
+        });
+        if (this.snapshotBuffer.length > 20) {
+          this.snapshotBuffer.shift();
+        }
+      }
+
       if (state.status === 'playing' && localRole) {
         const isP1 = localRole === 'player1';
         const serverLocalY = isP1 ? p1Y : p2Y;
-        const serverLocalAckSeq = isP1
-          ? (state.player1?.lastProcessedSeq ?? 0)
-          : (state.player2?.lastProcessedSeq ?? 0);
+        const serverLocalDir = isP1
+          ? (state.player1?.direction ?? 0)
+          : (state.player2?.direction ?? 0);
         const serverOpponentY = isP1 ? p2Y : p1Y;
 
-        // 1. GABRIEL GAMBETTA RECONCILIATION
-        // When server sends state, reconcile unacknowledged inputs from authoritative ground truth
-        if (serverLocalAckSeq > this.lastAckSeq || serverLocalY !== this.lastServerLocalY) {
-          this.lastAckSeq = serverLocalAckSeq;
-          this.lastServerLocalY = serverLocalY;
+        // 1. Immediate Local Visual Movement (100% Responsive)
+        if (localDirection !== 0) {
+          this.predictedLocalY += localDirection * paddleSpeed * dt;
+          this.predictedLocalY = Math.max(0, Math.min(maxPaddleY, this.predictedLocalY));
+        }
 
-          // Remove all acknowledged inputs
-          this.pendingInputs = this.pendingInputs.filter((cmd) => cmd.seq > serverLocalAckSeq);
+        // 2. Continuous Drift Compensation (Zero-Flicker Time Synchronization)
+        const rttMs = getMeasuredRttMs();
+        const oneWaySec = Math.max(0.005, Math.min(0.12, (rttMs / 2) / 1000));
 
-          // Replay unacknowledged inputs
-          let reconY = serverLocalY;
-          for (const cmd of this.pendingInputs) {
-            reconY += cmd.direction * paddleSpeed * cmd.dt;
-            reconY = Math.max(0, Math.min(maxPaddleY, reconY));
+        let expectedServerY = serverLocalY;
+        if (serverLocalDir !== 0) {
+          expectedServerY += serverLocalDir * paddleSpeed * oneWaySec;
+          expectedServerY = Math.max(0, Math.min(maxPaddleY, expectedServerY));
+        }
+
+        if (localDirection === 0 && serverLocalDir === 0) {
+          // Stationary -> smoothly settle directly onto authoritative server position
+          const diff = serverLocalY - this.predictedLocalY;
+          if (Math.abs(diff) < 0.5) {
+            this.predictedLocalY = serverLocalY;
+          } else {
+            this.predictedLocalY += diff * 0.25;
           }
-          this.visualLocalY = reconY;
-        }
-
-        // 2. IMMEDIATE LOCAL PREDICTION FOR CURRENT FRAME
-        const seq = ++this.seqCounter;
-        this.pendingInputs.push({ seq, direction: localDirection, dt });
-        if (this.pendingInputs.length > 120) {
-          this.pendingInputs.shift();
-        }
-
-        this.visualLocalY += localDirection * paddleSpeed * dt;
-        this.visualLocalY = Math.max(0, Math.min(maxPaddleY, this.visualLocalY));
-
-        // 3. OPPONENT PADDLE INTERPOLATION (Single Smooth Path, No Mid-Range Snapping)
-        const oppDiff = serverOpponentY - (isP1 ? this.visualP2Y : this.visualP1Y);
-        if (Math.abs(oppDiff) > 250) {
-          if (isP1) this.visualP2Y = serverOpponentY;
-          else this.visualP1Y = serverOpponentY;
         } else {
-          if (isP1) this.visualP2Y += oppDiff * 0.45;
-          else this.visualP1Y += oppDiff * 0.45;
+          // Moving -> gently guide any sub-pixel latency drift without any snapping
+          const drift = expectedServerY - this.predictedLocalY;
+          this.predictedLocalY += drift * 0.08;
         }
 
-        // Assign visual positions
+        // 3. Assign Visual Positions (Single Visual Owner)
         if (isP1) {
-          this.visualP1Y = this.visualLocalY;
+          this.visualP1Y = this.predictedLocalY;
+          this.visualP2Y = this.getInterpolatedRemoteY('player2', serverOpponentY, now);
         } else {
-          this.visualP2Y = this.visualLocalY;
+          this.visualP2Y = this.predictedLocalY;
+          this.visualP1Y = this.getInterpolatedRemoteY('player1', serverOpponentY, now);
         }
       } else {
-        // Non-playing state (waiting, countdown, game-over)
-        this.pendingInputs = [];
-        this.seqCounter = 0;
-        this.lastAckSeq = 0;
-        this.lastServerLocalY = localRole === 'player1' ? p1Y : p2Y;
-        this.visualLocalY = this.lastServerLocalY;
+        // Non-playing state (waiting, countdown, game-over, round reset)
+        this.snapshotBuffer = [];
+        this.lastRecordedTimestamp = 0;
+        this.predictedLocalY = localRole === 'player1' ? p1Y : p2Y;
 
-        const p1Diff = p1Y - this.visualP1Y;
-        if (Math.abs(p1Diff) > 200) this.visualP1Y = p1Y;
-        else this.visualP1Y += p1Diff * 0.35;
-
-        const p2Diff = p2Y - this.visualP2Y;
-        if (Math.abs(p2Diff) > 200) this.visualP2Y = p2Y;
-        else this.visualP2Y += p2Diff * 0.35;
+        this.visualP1Y += (p1Y - this.visualP1Y) * 0.35;
+        this.visualP2Y += (p2Y - this.visualP2Y) * 0.35;
       }
 
       // Smooth ball movement (100% Server Authoritative)
-      const ballDist = Math.hypot(ballX - this.visualBallX, ballY - this.visualBallY);
-      if (ballDist > 250) {
-        this.visualBallX = ballX;
-        this.visualBallY = ballY;
-      } else {
-        this.visualBallX += (ballX - this.visualBallX) * 0.60;
-        this.visualBallY += (ballY - this.visualBallY) * 0.60;
-      }
+      this.visualBallX += (ballX - this.visualBallX) * 0.65;
+      this.visualBallY += (ballY - this.visualBallY) * 0.65;
     } else {
       this.visualP1Y = p1Y;
       this.visualP2Y = p2Y;

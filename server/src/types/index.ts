@@ -28,6 +28,7 @@ export interface BallState {
 
 export interface PlayerPaddleState {
   y: number;
+  direction: InputDirection;
   ready: boolean;
   lastProcessedSeq?: number;
 }
@@ -38,6 +39,8 @@ export interface ScoreState {
 }
 
 export interface AuthoritativeGameState {
+  tick: number;
+  timestamp: number;
   ball: BallState;
   player1: PlayerPaddleState;
   player2: PlayerPaddleState;

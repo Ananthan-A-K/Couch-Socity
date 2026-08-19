@@ -15,6 +15,8 @@ import type {
 } from '../types';
 
 const createDefaultGameState = (): AuthoritativeGameState => ({
+  tick: 0,
+  timestamp: Date.now(),
   ball: {
     x: ONLINE_GAME_CONFIG.canvasWidth / 2,
     y: ONLINE_GAME_CONFIG.canvasHeight / 2,
@@ -23,10 +25,12 @@ const createDefaultGameState = (): AuthoritativeGameState => ({
   },
   player1: {
     y: (ONLINE_GAME_CONFIG.canvasHeight - ONLINE_GAME_CONFIG.paddleHeight) / 2,
+    direction: 0,
     ready: false,
   },
   player2: {
     y: (ONLINE_GAME_CONFIG.canvasHeight - ONLINE_GAME_CONFIG.paddleHeight) / 2,
+    direction: 0,
     ready: false,
   },
   score: {
@@ -179,22 +183,20 @@ export const RoomPage: React.FC = () => {
     }
   }, [localRole, hasOpponent]);
 
-  // 2. Directional Intent Input System with Sequence Numbering
+  // 2. Directional Intent Input System
   const currentDirectionRef = useRef<InputDirection>(0);
   const lastSentDirectionRef = useRef<InputDirection>(0);
   const lastEmitTimeRef = useRef<number>(0);
-  const clientSeqRef = useRef<number>(0);
 
   const emitDirection = useCallback((nextDirection: InputDirection) => {
     currentDirectionRef.current = nextDirection;
     const now = performance.now();
-    const seq = rendererRef.current?.getLatestSeq() ?? ++clientSeqRef.current;
     lastSentDirectionRef.current = nextDirection;
     lastEmitTimeRef.current = now;
-    socket.emit('player-input', { seq, direction: nextDirection });
+    socket.emit('player-input', { direction: nextDirection });
   }, []);
 
-  // 3. Smooth Animation Frame Loop for 60-144fps rendering with Gambetta prediction
+  // 3. Smooth Animation Frame Loop for 60-144fps rendering
   useEffect(() => {
     let animId: number;
 
@@ -209,8 +211,7 @@ export const RoomPage: React.FC = () => {
         now - lastEmitTimeRef.current >= 50
       ) {
         lastEmitTimeRef.current = now;
-        const seq = rendererRef.current?.getLatestSeq() ?? ++clientSeqRef.current;
-        socket.emit('player-input', { seq, direction: currentDirectionRef.current });
+        socket.emit('player-input', { direction: currentDirectionRef.current });
       }
 
       if (rendererRef.current && gameStateRef.current) {
