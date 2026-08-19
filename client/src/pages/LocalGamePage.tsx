@@ -342,12 +342,24 @@ export const LocalGamePage: React.FC = () => {
         </div>
 
         {/* Instructions Footer */}
-        <div className="mt-4 sm:mt-5 flex items-center justify-center gap-4 sm:gap-6 font-mono text-[10px] sm:text-[11px] text-stone-500">
-          <span>First to 10 wins</span>
-          <span className="text-stone-700">•</span>
-          <span>Touch court / D-Pad</span>
-          <span className="text-stone-700">•</span>
-          <span>Space to pause</span>
+        <div className="mt-4 sm:mt-5 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-6 font-mono text-[10px] sm:text-[11px] text-stone-500">
+          <div className="flex items-center gap-3 sm:gap-6">
+            <span>First to 10 wins</span>
+            <span className="text-stone-700">•</span>
+            <span>Touch court / D-Pad</span>
+            <span className="text-stone-700">•</span>
+            <span>Space to pause</span>
+          </div>
+          <span className="hidden sm:inline text-stone-700">|</span>
+          <button
+            onClick={() => {
+              sounds.unlock();
+              navigate('/');
+            }}
+            className="text-stone-400 hover:text-stone-200 transition-colors cursor-pointer"
+          >
+            Play Online (Beta) →
+          </button>
         </div>
       </div>
     </div>

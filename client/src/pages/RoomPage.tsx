@@ -685,6 +685,9 @@ export const RoomPage: React.FC = () => {
             <div className="flex items-center gap-2 px-2.5 sm:px-3 py-1.5 bg-stone-900/90 border border-stone-800 rounded-xl text-[11px] sm:text-xs">
               <span className="text-stone-500 uppercase text-[10px]">ROOM:</span>
               <span className="font-bold text-stone-100 tracking-wider select-all">{cleanCode}</span>
+              <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase">
+                BETA
+              </span>
             </div>
 
             <button

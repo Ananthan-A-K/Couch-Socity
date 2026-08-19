@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { JoinRoomSection } from '../components/landing/JoinRoomSection';
 import { AmbientPongCanvas } from '../components/landing/AmbientPongCanvas';
@@ -9,6 +9,10 @@ export const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handlePlayLocal = () => {
+    navigate('/game');
+  };
 
   const handleCreateRoom = () => {
     setError(null);
@@ -44,12 +48,12 @@ export const HomePage: React.FC = () => {
       <AmbientPongCanvas />
 
       {/* Main Landing Area */}
-      <main className="relative z-10 w-full max-w-lg mx-auto flex flex-col items-center text-center my-auto py-12">
+      <main className="relative z-10 w-full max-w-lg mx-auto flex flex-col items-center text-center my-auto py-10 sm:py-12">
         {/* Title & Minimalist Tagline */}
-        <div className="space-y-4 mb-12 sm:mb-16">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-stone-900/80 border border-stone-800 rounded-full text-[11px] font-mono text-stone-400 mb-2">
+        <div className="space-y-3 mb-10 sm:mb-12">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-stone-900/80 border border-stone-800 rounded-full text-[11px] font-mono text-stone-400 mb-1">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-            <span className="tracking-widest">MINIMAL ONLINE PONG</span>
+            <span className="tracking-widest">MINIMAL RETRO PONG</span>
           </div>
 
           <h1 className="text-5xl sm:text-7xl font-extrabold tracking-tighter text-stone-100 font-mono uppercase select-none">
@@ -61,58 +65,77 @@ export const HomePage: React.FC = () => {
           </p>
         </div>
 
-        {/* Action Group with Generous Whitespace */}
-        <div className="w-full flex flex-col items-center gap-7 sm:gap-8">
-          {/* Primary Action Button */}
+        {/* MAIN FEATURE: Local 2-Player Mode */}
+        <div className="w-full flex flex-col items-center gap-4">
           <div className="w-full max-w-xs">
             <Button
               variant="primary"
               size="lg"
               fullWidth
-              onClick={handleCreateRoom}
-              disabled={isCreating}
+              onClick={handlePlayLocal}
               className="py-4 shadow-xl shadow-stone-100/5 tracking-widest text-sm font-bold"
             >
-              {isCreating ? 'CREATING ROOM...' : 'CREATE ROOM'}
+              PLAY LOCAL MODE
             </Button>
           </div>
 
-          {/* Minimal Subtle Divider */}
-          <div className="w-full max-w-xs flex items-center gap-4 text-stone-700">
-            <div className="h-px flex-1 bg-stone-800" />
-            <span className="font-mono text-[11px] text-stone-500 uppercase tracking-widest">or</span>
-            <div className="h-px flex-1 bg-stone-800" />
-          </div>
-
-          {/* Secondary Action (Join) */}
-          <div className="w-full flex justify-center">
-            <JoinRoomSection onJoin={handleJoinRoom} disabled={isCreating} />
+          <div className="flex items-center gap-3 font-mono text-[11px] text-stone-500">
+            <span>P1: W/S</span>
+            <span className="text-stone-700">•</span>
+            <span>P2: ↑/↓</span>
+            <span className="text-stone-700">•</span>
+            <span>Touch Supported</span>
           </div>
         </div>
 
-        {/* Error Notification */}
-        {error && (
-          <p className="mt-6 text-xs font-mono text-rose-400 tracking-wider">
-            {error}
-          </p>
-        )}
+        {/* Subtle Divider */}
+        <div className="w-full max-w-xs flex items-center gap-4 text-stone-700 my-8">
+          <div className="h-px flex-1 bg-stone-800" />
+          <span className="font-mono text-[10px] text-stone-500 uppercase tracking-widest">or</span>
+          <div className="h-px flex-1 bg-stone-800" />
+        </div>
 
-        {/* Local Practice Link */}
-        <div className="mt-12">
-          <Link
-            to="/game"
-            className="font-mono text-xs text-stone-500 hover:text-stone-300 tracking-wider transition-colors inline-flex items-center gap-1.5 py-1 px-2 rounded-lg hover:bg-stone-900/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-stone-400"
-          >
-            <span>play 2-player local mode on one keyboard</span>
-            <span>→</span>
-          </Link>
+        {/* SECONDARY FEATURE: Online Multiplayer (Beta) */}
+        <div className="w-full max-w-sm flex flex-col items-center p-5 rounded-2xl bg-stone-900/40 border border-stone-800/80">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="font-mono text-xs font-bold text-stone-300 tracking-wider uppercase">
+              ONLINE MULTIPLAYER
+            </span>
+            <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase tracking-widest">
+              BETA
+            </span>
+          </div>
+
+          <div className="w-full flex flex-col gap-3">
+            <Button
+              variant="secondary"
+              size="md"
+              fullWidth
+              onClick={handleCreateRoom}
+              disabled={isCreating}
+              className="py-3 text-xs font-bold tracking-wider"
+            >
+              {isCreating ? 'CREATING ROOM...' : 'CREATE ONLINE ROOM (BETA)'}
+            </Button>
+
+            <div className="w-full">
+              <JoinRoomSection onJoin={handleJoinRoom} disabled={isCreating} />
+            </div>
+          </div>
+
+          {/* Error Notification */}
+          {error && (
+            <p className="mt-3 text-xs font-mono text-rose-400 tracking-wider">
+              {error}
+            </p>
+          )}
         </div>
 
         {/* Subtle Specs */}
-        <div className="mt-12 sm:mt-16 flex items-center justify-center gap-6 text-[10px] font-mono text-stone-500 tracking-widest uppercase">
-          <span>2 PLAYERS</span>
+        <div className="mt-10 sm:mt-12 flex items-center justify-center gap-6 text-[10px] font-mono text-stone-500 tracking-widest uppercase">
+          <span>LOCAL 2-PLAYER</span>
           <span className="text-stone-700">•</span>
-          <span>1 LINK</span>
+          <span>ONLINE (BETA)</span>
           <span className="text-stone-700">•</span>
           <span>ZERO SETUP</span>
         </div>
@@ -120,3 +143,4 @@ export const HomePage: React.FC = () => {
     </div>
   );
 };
+
