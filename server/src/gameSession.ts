@@ -28,6 +28,8 @@ export class GameSession {
 
   private p1Direction: InputDirection = 0;
   private p2Direction: InputDirection = 0;
+  private p1LastProcessedSeq: number = 0;
+  private p2LastProcessedSeq: number = 0;
 
   private ballSpeed: number = GAME_CONSTANTS.BALL_INITIAL_SPEED;
   private lastScorer: 'player1' | 'player2' | null = null;
@@ -52,10 +54,12 @@ export class GameSession {
       player1: {
         y: initialPaddleY,
         ready: false,
+        lastProcessedSeq: 0,
       },
       player2: {
         y: initialPaddleY,
         ready: false,
+        lastProcessedSeq: 0,
       },
       score: {
         player1: 0,
@@ -134,6 +138,10 @@ export class GameSession {
     this.state.rematch = { player1: false, player2: false };
     this.p1Direction = 0;
     this.p2Direction = 0;
+    this.p1LastProcessedSeq = 0;
+    this.p2LastProcessedSeq = 0;
+    this.state.player1.lastProcessedSeq = 0;
+    this.state.player2.lastProcessedSeq = 0;
     this.resetBall();
 
     // Ensure the 60Hz authoritative tick loop is running
@@ -144,17 +152,27 @@ export class GameSession {
   }
 
   /**
-   * Handles player directional intent inputs (-1 = up, 1 = down, 0 = stop).
+   * Handles player directional intent inputs with sequence numbering.
    */
   public setPlayerInput(
     role: 'player1' | 'player2',
     input: PlayerInputPayload
   ): void {
     const dir = input?.direction === -1 ? -1 : input?.direction === 1 ? 1 : 0;
+    const seq = typeof input?.seq === 'number' ? input.seq : 0;
+
     if (role === 'player1') {
-      this.p1Direction = dir;
+      if (seq >= this.p1LastProcessedSeq) {
+        this.p1Direction = dir;
+        this.p1LastProcessedSeq = seq;
+        this.state.player1.lastProcessedSeq = seq;
+      }
     } else if (role === 'player2') {
-      this.p2Direction = dir;
+      if (seq >= this.p2LastProcessedSeq) {
+        this.p2Direction = dir;
+        this.p2LastProcessedSeq = seq;
+        this.state.player2.lastProcessedSeq = seq;
+      }
     }
   }
 
@@ -194,9 +212,13 @@ export class GameSession {
     this.state.winner = null;
     this.state.player1.ready = false;
     this.state.player2.ready = false;
+    this.state.player1.lastProcessedSeq = 0;
+    this.state.player2.lastProcessedSeq = 0;
     this.state.rematch = { player1: false, player2: false };
     this.p1Direction = 0;
     this.p2Direction = 0;
+    this.p1LastProcessedSeq = 0;
+    this.p2LastProcessedSeq = 0;
     this.resetBall();
 
     io.to(this.roomCode).emit('player-disconnected', {

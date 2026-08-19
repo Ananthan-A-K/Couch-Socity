@@ -21,6 +21,12 @@ interface Particle {
   color: string;
 }
 
+export interface PendingInput {
+  seq: number;
+  direction: InputDirection;
+  dt: number;
+}
+
 export class OnlinePongRenderer {
   private ctx: CanvasRenderingContext2D;
   private visualP1Y: number = (ONLINE_GAME_CONFIG.canvasHeight - ONLINE_GAME_CONFIG.paddleHeight) / 2;
@@ -28,6 +34,13 @@ export class OnlinePongRenderer {
   private visualBallX: number = ONLINE_GAME_CONFIG.canvasWidth / 2;
   private visualBallY: number = ONLINE_GAME_CONFIG.canvasHeight / 2;
   private hasInitialized = false;
+
+  // Gabriel Gambetta Client-Side Prediction State
+  private pendingInputs: PendingInput[] = [];
+  private seqCounter: number = 0;
+  private visualLocalY: number = (ONLINE_GAME_CONFIG.canvasHeight - ONLINE_GAME_CONFIG.paddleHeight) / 2;
+  private lastAckSeq: number = 0;
+  private lastServerLocalY: number = (ONLINE_GAME_CONFIG.canvasHeight - ONLINE_GAME_CONFIG.paddleHeight) / 2;
 
   // Visual Animation States
   private p1HitEffect: number = 0; // 0 to 1 decay
@@ -53,6 +66,10 @@ export class OnlinePongRenderer {
 
   constructor(ctx: CanvasRenderingContext2D) {
     this.ctx = ctx;
+  }
+
+  public getLatestSeq(): number {
+    return this.seqCounter;
   }
 
   public triggerPaddleHit(side: 'left' | 'right', y: number): void {
@@ -190,81 +207,66 @@ export class OnlinePongRenderer {
     if (interpolate) {
       const maxPaddleY = h - paddleHeight;
 
-      if (state.status === 'playing') {
-        // --- PLAYER 1 PADDLE ---
-        if (localRole === 'player1') {
-          // 1. Local Player 1: Immediate Client-Side Prediction (Sole Writer)
-          if (localDirection !== 0) {
-            this.visualP1Y += localDirection * paddleSpeed * dt;
-            this.visualP1Y = Math.max(0, Math.min(maxPaddleY, this.visualP1Y));
+      if (state.status === 'playing' && localRole) {
+        const isP1 = localRole === 'player1';
+        const serverLocalY = isP1 ? p1Y : p2Y;
+        const serverLocalAckSeq = isP1
+          ? (state.player1?.lastProcessedSeq ?? 0)
+          : (state.player2?.lastProcessedSeq ?? 0);
+        const serverOpponentY = isP1 ? p2Y : p1Y;
 
-            // Reconciliation during active movement (only adjust on genuine desync, never fight normal network lag)
-            const diff = p1Y - this.visualP1Y;
-            const absDiff = Math.abs(diff);
-            if (absDiff > 200) {
-              this.visualP1Y = p1Y; // Extreme desync / teleport fallback
-            } else if (absDiff > 60) {
-              this.visualP1Y += diff * 0.12; // Moderate correction
-            } else if (absDiff >= 20) {
-              this.visualP1Y += diff * 0.04; // Gentle nudge
-            }
-            // If diff < 20px: completely ignored during movement to prevent any stutter
-          } else {
-            // Stationary: smoothly settle to authoritative server position
-            const diff = p1Y - this.visualP1Y;
-            if (Math.abs(diff) < 0.5) {
-              this.visualP1Y = p1Y;
-            } else {
-              this.visualP1Y += diff * 0.25;
-            }
+        // 1. GABRIEL GAMBETTA RECONCILIATION
+        // When server sends state, reconcile unacknowledged inputs from authoritative ground truth
+        if (serverLocalAckSeq > this.lastAckSeq || serverLocalY !== this.lastServerLocalY) {
+          this.lastAckSeq = serverLocalAckSeq;
+          this.lastServerLocalY = serverLocalY;
+
+          // Remove all acknowledged inputs
+          this.pendingInputs = this.pendingInputs.filter((cmd) => cmd.seq > serverLocalAckSeq);
+
+          // Replay unacknowledged inputs
+          let reconY = serverLocalY;
+          for (const cmd of this.pendingInputs) {
+            reconY += cmd.direction * paddleSpeed * cmd.dt;
+            reconY = Math.max(0, Math.min(maxPaddleY, reconY));
           }
-        } else {
-          // Opponent (or Spectator) Player 1: Single smooth LERP path (No snap threshold)
-          const diff = p1Y - this.visualP1Y;
-          if (Math.abs(diff) > 250) {
-            this.visualP1Y = p1Y; // Snap only on round reset
-          } else {
-            this.visualP1Y += diff * 0.45;
-          }
+          this.visualLocalY = reconY;
         }
 
-        // --- PLAYER 2 PADDLE ---
-        if (localRole === 'player2') {
-          // 1. Local Player 2: Immediate Client-Side Prediction (Sole Writer)
-          if (localDirection !== 0) {
-            this.visualP2Y += localDirection * paddleSpeed * dt;
-            this.visualP2Y = Math.max(0, Math.min(maxPaddleY, this.visualP2Y));
+        // 2. IMMEDIATE LOCAL PREDICTION FOR CURRENT FRAME
+        const seq = ++this.seqCounter;
+        this.pendingInputs.push({ seq, direction: localDirection, dt });
+        if (this.pendingInputs.length > 120) {
+          this.pendingInputs.shift();
+        }
 
-            // Reconciliation during active movement
-            const diff = p2Y - this.visualP2Y;
-            const absDiff = Math.abs(diff);
-            if (absDiff > 200) {
-              this.visualP2Y = p2Y;
-            } else if (absDiff > 60) {
-              this.visualP2Y += diff * 0.12;
-            } else if (absDiff >= 20) {
-              this.visualP2Y += diff * 0.04;
-            }
-          } else {
-            // Stationary: smoothly settle to authoritative server position
-            const diff = p2Y - this.visualP2Y;
-            if (Math.abs(diff) < 0.5) {
-              this.visualP2Y = p2Y;
-            } else {
-              this.visualP2Y += diff * 0.25;
-            }
-          }
+        this.visualLocalY += localDirection * paddleSpeed * dt;
+        this.visualLocalY = Math.max(0, Math.min(maxPaddleY, this.visualLocalY));
+
+        // 3. OPPONENT PADDLE INTERPOLATION (Single Smooth Path, No Mid-Range Snapping)
+        const oppDiff = serverOpponentY - (isP1 ? this.visualP2Y : this.visualP1Y);
+        if (Math.abs(oppDiff) > 250) {
+          if (isP1) this.visualP2Y = serverOpponentY;
+          else this.visualP1Y = serverOpponentY;
         } else {
-          // Opponent (or Spectator) Player 2: Single smooth LERP path (No snap threshold)
-          const diff = p2Y - this.visualP2Y;
-          if (Math.abs(diff) > 250) {
-            this.visualP2Y = p2Y;
-          } else {
-            this.visualP2Y += diff * 0.45;
-          }
+          if (isP1) this.visualP2Y += oppDiff * 0.45;
+          else this.visualP1Y += oppDiff * 0.45;
+        }
+
+        // Assign visual positions
+        if (isP1) {
+          this.visualP1Y = this.visualLocalY;
+        } else {
+          this.visualP2Y = this.visualLocalY;
         }
       } else {
-        // Non-playing state (waiting, countdown, game-over): smoothly align to server
+        // Non-playing state (waiting, countdown, game-over)
+        this.pendingInputs = [];
+        this.seqCounter = 0;
+        this.lastAckSeq = 0;
+        this.lastServerLocalY = localRole === 'player1' ? p1Y : p2Y;
+        this.visualLocalY = this.lastServerLocalY;
+
         const p1Diff = p1Y - this.visualP1Y;
         if (Math.abs(p1Diff) > 200) this.visualP1Y = p1Y;
         else this.visualP1Y += p1Diff * 0.35;

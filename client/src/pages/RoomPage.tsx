@@ -179,23 +179,40 @@ export const RoomPage: React.FC = () => {
     }
   }, [localRole, hasOpponent]);
 
-  // 2. Directional Intent Input System (Keyboard + Mobile Touch Integration)
+  // 2. Directional Intent Input System with Sequence Numbering
   const currentDirectionRef = useRef<InputDirection>(0);
   const lastSentDirectionRef = useRef<InputDirection>(0);
+  const lastEmitTimeRef = useRef<number>(0);
+  const clientSeqRef = useRef<number>(0);
 
   const emitDirection = useCallback((nextDirection: InputDirection) => {
     currentDirectionRef.current = nextDirection;
-    if (nextDirection !== lastSentDirectionRef.current) {
-      lastSentDirectionRef.current = nextDirection;
-      socket.emit('player-input', { direction: nextDirection });
-    }
+    const now = performance.now();
+    const seq = rendererRef.current?.getLatestSeq() ?? ++clientSeqRef.current;
+    lastSentDirectionRef.current = nextDirection;
+    lastEmitTimeRef.current = now;
+    socket.emit('player-input', { seq, direction: nextDirection });
   }, []);
 
-  // 3. Smooth Animation Frame Loop for 60-144fps rendering with local paddle prediction
+  // 3. Smooth Animation Frame Loop for 60-144fps rendering with Gambetta prediction
   useEffect(() => {
     let animId: number;
 
     const renderLoop = () => {
+      const now = performance.now();
+      // Heartbeat: If actively holding a direction, send a periodic update every 50ms (20Hz)
+      // to ensure input reliability against packet drop.
+      if (
+        gameStateRef.current?.status === 'playing' &&
+        localRole &&
+        currentDirectionRef.current !== 0 &&
+        now - lastEmitTimeRef.current >= 50
+      ) {
+        lastEmitTimeRef.current = now;
+        const seq = rendererRef.current?.getLatestSeq() ?? ++clientSeqRef.current;
+        socket.emit('player-input', { seq, direction: currentDirectionRef.current });
+      }
+
       if (rendererRef.current && gameStateRef.current) {
         rendererRef.current.render(
           gameStateRef.current,

@@ -29,6 +29,7 @@ export interface BallState {
 export interface PlayerPaddleState {
   y: number;
   ready: boolean;
+  lastProcessedSeq?: number;
 }
 
 export interface ScoreState {
@@ -51,7 +52,9 @@ export interface AuthoritativeGameState {
 }
 
 export interface PlayerInputPayload {
+  seq?: number;
   direction: InputDirection;
+  dt?: number;
 }
 
 export interface ServerToClientEvents {
