@@ -503,7 +503,7 @@ export class GameSession {
           });
         } else {
           this.resetBall();
-          this.serveDelay = 1.0;
+          this.serveDelay = 0.8;
         }
       } else if (ball.x - ballRadius > CANVAS_WIDTH) {
         // Player 1 scores
@@ -526,7 +526,7 @@ export class GameSession {
           });
         } else {
           this.resetBall();
-          this.serveDelay = 1.0;
+          this.serveDelay = 0.8;
         }
       }
     }

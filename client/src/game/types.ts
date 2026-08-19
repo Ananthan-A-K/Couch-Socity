@@ -57,4 +57,5 @@ export interface GameConfig {
   targetScore: number;
   serveDelaySeconds: number;
   paddleMargin: number;
+  paddleRadius?: number;
 }

@@ -64,14 +64,15 @@ assert(state.ball.vx > 0, 'Ball should bounce right after hitting left paddle');
 assert(state.ball.speed > prevSpeed, 'Ball speed should increase after paddle hit');
 console.log('✓ Paddle collision and speed acceleration verified');
 
-// 5. Scoring & Reset
+// 5. Scoring & Return to Serve
 state.status = 'playing';
 state.ball.x = -20; // out of left bounds
 state.ball.vx = -300;
 updatePhysics(state, idleInput, 0.05, DEFAULT_CONFIG);
 assert(state.player2.score === 1, 'Player 2 should score a point');
 assert((state.status as string) === 'serving', 'Status should transition to serving after a goal');
-console.log('✓ Goal detection & scoring verified');
+assert(state.serveTimer > 0, 'Serve timer should be set for preparation delay');
+console.log('✓ Goal detection & serve delay verified');
 
 // 6. Win Condition (First to 10)
 state.player1.score = 9;

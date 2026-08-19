@@ -13,4 +13,5 @@ export const DEFAULT_CONFIG: GameConfig = {
   ballMaxSpeed: 820,
   targetScore: 10,
   serveDelaySeconds: 1.0,
+  paddleRadius: 4,
 };
