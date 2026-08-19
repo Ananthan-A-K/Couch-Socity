@@ -1,5 +1,4 @@
 import type { AuthoritativeGameState, PlayerRole, InputDirection } from '../types';
-import { getMeasuredRttMs } from '../services/socket';
 
 export const ONLINE_GAME_CONFIG = {
   canvasWidth: 800,
@@ -267,42 +266,23 @@ export class OnlinePongRenderer {
       if (state.status === 'playing' && localRole) {
         const isP1 = localRole === 'player1';
         const serverLocalY = isP1 ? p1Y : p2Y;
-        const serverLocalDir = isP1
-          ? (state.player1?.direction ?? 0)
-          : (state.player2?.direction ?? 0);
         const serverOpponentY = isP1 ? p2Y : p1Y;
 
-        // 1. Immediate Local Visual Movement (100% Responsive)
+        // 1. Pure, uninterrupted Local Visual Movement (100% Responsive, Zero-Flicker)
         if (localDirection !== 0) {
           this.predictedLocalY += localDirection * paddleSpeed * dt;
           this.predictedLocalY = Math.max(0, Math.min(maxPaddleY, this.predictedLocalY));
-        }
-
-        // 2. Continuous Drift Compensation (Zero-Flicker Time Synchronization)
-        const rttMs = getMeasuredRttMs();
-        const oneWaySec = Math.max(0.005, Math.min(0.12, (rttMs / 2) / 1000));
-
-        let expectedServerY = serverLocalY;
-        if (serverLocalDir !== 0) {
-          expectedServerY += serverLocalDir * paddleSpeed * oneWaySec;
-          expectedServerY = Math.max(0, Math.min(maxPaddleY, expectedServerY));
-        }
-
-        if (localDirection === 0 && serverLocalDir === 0) {
-          // Stationary -> smoothly settle directly onto authoritative server position
-          const diff = serverLocalY - this.predictedLocalY;
-          if (Math.abs(diff) < 0.5) {
-            this.predictedLocalY = serverLocalY;
-          } else {
-            this.predictedLocalY += diff * 0.25;
-          }
         } else {
-          // Moving -> gently guide any sub-pixel latency drift without any snapping
-          const drift = expectedServerY - this.predictedLocalY;
-          this.predictedLocalY += drift * 0.08;
+          // When stationary, gently align to server position if there's any discrepancy
+          const diff = serverLocalY - this.predictedLocalY;
+          if (Math.abs(diff) > 2) {
+            this.predictedLocalY += diff * 0.15;
+          } else {
+            this.predictedLocalY = serverLocalY;
+          }
         }
 
-        // 3. Assign Visual Positions (Single Visual Owner)
+        // 2. Assign Visual Positions (Single Visual Owner)
         if (isP1) {
           this.visualP1Y = this.predictedLocalY;
           this.visualP2Y = this.getInterpolatedRemoteY('player2', serverOpponentY, now);
