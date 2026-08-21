@@ -11,7 +11,7 @@ export const Footer: React.FC = () => {
       <div className="flex items-center gap-4 text-stone-500">
         <span>FIRST TO 10 WINS</span>
         <span>•</span>
-        <span>NO LAG · 60HZ</span>
+        <span>SIT BACK & ENJOY</span>
       </div>
     </footer>
   );

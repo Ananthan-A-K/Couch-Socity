@@ -182,7 +182,7 @@ export const LocalGamePage: React.FC = () => {
             className="hover:text-stone-200 transition-colors flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-stone-400 rounded-lg px-2.5 py-1.5 -mx-1 bg-stone-900/60 hover:bg-stone-900 border border-stone-800/60 cursor-pointer text-xs"
           >
             <span>←</span>
-            <span>LOBBY</span>
+            <span>BACK</span>
           </button>
 
           <div className="flex items-center gap-2">
@@ -354,11 +354,11 @@ export const LocalGamePage: React.FC = () => {
           <button
             onClick={() => {
               sounds.unlock();
-              navigate('/');
+              navigate('/online');
             }}
             className="text-stone-400 hover:text-stone-200 transition-colors cursor-pointer"
           >
-            Play Online (Beta) →
+            Play Online →
           </button>
         </div>
       </div>
