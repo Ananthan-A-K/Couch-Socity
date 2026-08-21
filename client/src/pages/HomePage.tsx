@@ -60,8 +60,8 @@ export const HomePage: React.FC = () => {
             Couch Society
           </h1>
 
-          <p className="text-stone-400 font-mono text-sm sm:text-base tracking-wide font-normal lowercase max-w-sm mx-auto">
-            "just pong. nothing else."
+          <p className="text-stone-400 font-mono text-sm sm:text-base tracking-wide font-normal max-w-sm mx-auto">
+            "Play Together. Stay Together."
           </p>
         </div>
 

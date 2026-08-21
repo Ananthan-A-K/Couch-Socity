@@ -1,6 +1,6 @@
 # Couch Society — Minimal Online Pong
 
-> *"Just Pong. Nothing else."*
+> *"Play Together. Stay Together."*
 
 A calm, minimal, slightly retro, and premium 2-player real-time online Pong platform. Built with a server-authoritative game loop, sub-millisecond input intent streaming, responsive HTML5 Canvas rendering with linear interpolation, procedural Web Audio sound effects, and zero-setup room codes.
 

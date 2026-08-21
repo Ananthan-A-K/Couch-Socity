@@ -6,7 +6,7 @@ export const Footer: React.FC = () => {
       <div className="flex items-center gap-2">
         <span className="text-stone-400 font-bold">COUCH SOCIETY</span>
         <span>•</span>
-        <span className="text-stone-500">JUST PONG</span>
+        <span className="text-stone-500">PLAY TOGETHER. STAY TOGETHER.</span>
       </div>
       <div className="flex items-center gap-4 text-stone-500">
         <span>FIRST TO 10 WINS</span>
