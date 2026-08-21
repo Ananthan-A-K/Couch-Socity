@@ -1,7 +1,7 @@
 {
-  "name": "couch-socity-server",
+  "name": "couch-society-server",
   "version": "1.0.0",
-  "description": "Backend server for Couch Socity Pong game",
+  "description": "Backend server for Couch Society Pong game",
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",

@@ -57,7 +57,7 @@ export const HomePage: React.FC = () => {
           </div>
 
           <h1 className="text-5xl sm:text-7xl font-extrabold tracking-tighter text-stone-100 font-mono uppercase select-none">
-            Couch Socity
+            Couch Society
           </h1>
 
           <p className="text-stone-400 font-mono text-sm sm:text-base tracking-wide font-normal lowercase max-w-sm mx-auto">

@@ -33,7 +33,7 @@ export const Navbar: React.FC = () => {
         className="group flex items-center gap-2.5 font-mono text-xs text-stone-300 hover:text-stone-100 tracking-widest uppercase transition-colors select-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-stone-400 rounded px-1.5 py-0.5 -mx-1.5"
       >
         <span className="w-1.5 h-1.5 rounded-xs bg-stone-100 group-hover:scale-125 transition-transform" />
-        <span className="font-bold tracking-widest">COUCH SOCITY</span>
+        <span className="font-bold tracking-widest">COUCH SOCIETY</span>
       </Link>
 
       <div className="flex items-center gap-3">

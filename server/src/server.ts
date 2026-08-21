@@ -57,7 +57,7 @@ app.use(express.json());
 app.get('/api/health', (_req: Request, res: Response) => {
   res.json({
     status: 'ok',
-    service: 'Couch Socity Server',
+    service: 'Couch Society Server',
     timestamp: new Date().toISOString(),
     activeRooms: roomManager.getRoomCount(),
   });
@@ -288,7 +288,7 @@ io.on('connection', (socket) => {
 // Start HTTP & WebSocket Server
 server.listen(PORT, () => {
   console.log(`=========================================`);
-  console.log(` Couch Socity Server is running!`);
+  console.log(` Couch Society Server is running!`);
   console.log(` Port: ${PORT}`);
   console.log(` Allowed Origins: ${allowedOrigins.join(', ')}`);
   console.log(` Environment: ${process.env.NODE_ENV || 'development'}`);

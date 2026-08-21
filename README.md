@@ -1,4 +1,4 @@
-# Couch Socity — Minimal Online Pong
+# Couch Society — Minimal Online Pong
 
 > *"Just Pong. Nothing else."*
 
@@ -21,7 +21,7 @@ A calm, minimal, slightly retro, and premium 2-player real-time online Pong plat
 
 ## 1. Project Overview
 
-**Couch Socity** was designed as an antidote to bloated gaming sites with excessive gradients, neon overload, and cumbersome login walls. Two players can jump into a match in seconds simply by sharing a 5-character room code or link.
+**Couch Society** was designed as an antidote to bloated gaming sites with excessive gradients, neon overload, and cumbersome login walls. Two players can jump into a match in seconds simply by sharing a 5-character room code or link.
 
 All game physics, collisions, scoring, and lifecycle states are computed authoritatively on the server at **60Hz**, eliminating client-side desynchronization and cheating while keeping the client lightweight and responsive.
 
@@ -79,8 +79,8 @@ All game physics, collisions, scoring, and lifecycle states are computed authori
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/your-username/couch-socity.git
-   cd couch-socity
+   git clone https://github.com/your-username/couch-society.git
+   cd couch-society
    ```
 
 2. Install all dependencies across the monorepo:
@@ -105,13 +105,13 @@ All game physics, collisions, scoring, and lifecycle states are computed authori
 | Variable | Description | Default (Dev) | Example (Prod) |
 | :--- | :--- | :--- | :--- |
 | `PORT` | Port number for Express & Socket.IO server | `3001` | `10000` (Render default) |
-| `CLIENT_URL` | Allowed frontend origin(s) for CORS (comma-separated) | `http://localhost:5173` | `https://couch-socity.vercel.app` |
+| `CLIENT_URL` | Allowed frontend origin(s) for CORS (comma-separated) | `http://localhost:5173` | `https://couch-society.vercel.app` |
 | `NODE_ENV` | Runtime environment mode | `development` | `production` |
 
 ### Frontend Client (`client/.env`)
 | Variable | Description | Default (Dev) | Example (Prod) |
 | :--- | :--- | :--- | :--- |
-| `VITE_BACKEND_URL` | Full URL of the deployed backend WebSocket server | `http://localhost:3001` | `https://couch-socity-server.onrender.com` |
+| `VITE_BACKEND_URL` | Full URL of the deployed backend WebSocket server | `http://localhost:3001` | `https://couch-society-server.onrender.com` |
 
 ---
 
@@ -141,7 +141,7 @@ Render provides persistent WebSocket support on Web Services.
 1. Sign in to [Render](https://render.com) and select **New +** → **Web Service**.
 2. Connect your GitHub repository.
 3. Configure service settings:
-   - **Name**: `couch-socity-server`
+   - **Name**: `couch-society-server`
    - **Root Directory**: `server`
    - **Runtime**: `Node`
    - **Build Command**: `npm install && npm run build`
@@ -151,7 +151,7 @@ Render provides persistent WebSocket support on Web Services.
    - `NODE_ENV`: `production`
    - `CLIENT_URL`: `https://your-frontend.vercel.app` *(your Vercel frontend URL, comma-separated for custom domains)*
 5. Click **Create Web Service**.
-6. Copy the assigned URL (e.g. `https://couch-socity-server.onrender.com`) and paste it as `VITE_BACKEND_URL` in your Vercel frontend configuration.
+6. Copy the assigned URL (e.g. `https://couch-society-server.onrender.com`) and paste it as `VITE_BACKEND_URL` in your Vercel frontend configuration.
 
 ---
 
@@ -211,4 +211,4 @@ Client 1 (P1 Host)                 Node.js Server (Authoritative)              C
 ---
 
 ## License
-MIT © [Couch Socity](https://github.com/your-username/couch-socity)
+MIT © [Couch Society](https://github.com/your-username/couch-society)

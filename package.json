@@ -1,8 +1,8 @@
 {
-  "name": "couch-socity",
+  "name": "couch-society",
   "version": "1.0.0",
   "private": true,
-  "description": "Couch Socity - A minimal, chill 2-player online Pong web application",
+  "description": "Couch Society - A minimal, chill 2-player online Pong web application",
   "scripts": {
     "dev": "concurrently -n \"SERVER,CLIENT\" -c \"blue,magenta\" \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "npm --prefix server run dev",

@@ -1,4 +1,4 @@
-// Procedural Web Audio API sound synthesizer for Couch Socity
+// Procedural Web Audio API sound synthesizer for Couch Society
 // Generates warm, subtle, minimalist sound effects without external audio files.
 
 class SoundManager {
@@ -9,7 +9,7 @@ class SoundManager {
   constructor() {
     // Load persisted mute preference
     try {
-      const saved = localStorage.getItem('couch_socity_muted');
+      const saved = localStorage.getItem('couch_society_muted') ?? localStorage.getItem('couch_socity_muted');
       if (saved !== null) {
         this.isMuted = saved === 'true';
       }
@@ -41,7 +41,7 @@ class SoundManager {
   public toggleMute(): boolean {
     this.isMuted = !this.isMuted;
     try {
-      localStorage.setItem('couch_socity_muted', String(this.isMuted));
+      localStorage.setItem('couch_society_muted', String(this.isMuted));
     } catch {}
     return this.isMuted;
   }

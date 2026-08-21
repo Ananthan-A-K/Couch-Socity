@@ -6,7 +6,7 @@ import { RoomManager } from './src/rooms';
 import { ServerToClientEvents, ClientToServerEvents, RoomState } from './src/types';
 
 async function runTests() {
-  console.log('--- Starting Couch Socity Socket.IO Room System Tests ---');
+  console.log('--- Starting Couch Society Socket.IO Room System Tests ---');
 
   const app = express();
   const server = http.createServer(app);
